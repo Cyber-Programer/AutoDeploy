@@ -17,6 +17,22 @@ read -r -p "[?] Is your project made with Python or NodeJS? (python/nodejs): " p
 read -r -p "[?] Enter your GitHub project link: " github_link
 read -r -p "[?] Enter your domain name (for Nginx setup, leave blank to skip): " domain_name
 read -r -p "[?] Enter the port your application runs on (default 3000): " app_port
+# Ask por python free ssl 
+# ask for certbot python3-certbot-nginx
+read -r -p "[?] Do you want to set up SSL with Let's Encrypt? (y/n): " setup_ssl_choice
+if [[ "$setup_ssl_choice" =~ ^[Yy]$ ]]; then
+    setup_ssl=true
+else
+    setup_ssl=false
+fi
+
+# if ssl is true ask for email for certbot
+if [ "$setup_ssl" = true ]; then
+    read -r -p "[?] Enter your email for Let's Encrypt notifications: " ssl_email
+fi
+
+read -r -p "---------------------------------- Press Enter to start the setup ----------------------------------"
+
 app_port=${app_port:-3000}
 
 if [[ "$project_type" != "python" && "$project_type" != "nodejs" ]]; then
@@ -29,6 +45,7 @@ export DEBIAN_FRONTEND=noninteractive
 echo "[+] Updating and upgrading the system..."
 apt-get update -y
 apt-get upgrade -y
+echo "[+] System updated and upgraded."
 
 if [ "$project_type" = "python" ]; then
     echo "[+] Installing Python and related packages..."
@@ -119,6 +136,15 @@ EOL
     ln -sf /etc/nginx/sites-available/"$repo_name" /etc/nginx/sites-enabled/"$repo_name"
     systemctl restart nginx
     echo "[+] Nginx configured as a reverse proxy (port 80)."
+fi
+
+if [ "$setup_ssl" = true ] && [ -n "${domain_name:-}" ]; then
+    echo "[+] Setting up SSL with Let's Encrypt..."
+    apt-get install -y certbot python3-certbot-nginx
+    certbot --nginx -d "$domain_name" -d "www.$domain_name" --non-interactive --agree-tos -m "$ssl_email"
+    echo "[+] SSL setup completed."
+else
+    echo "[!] SSL setup skipped."
 fi
 
 echo ""
